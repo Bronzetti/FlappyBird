@@ -22,11 +22,16 @@ public class Jogo extends ApplicationAdapter {
     private Texture[] passaros; //Array
     private Texture fundo;
 
+    private Texture canoBaixo;
+    private Texture canoTopo;
+
     private float larguraDispositivo;
     private float alturaDispositivo;
     private float variacao = 0; //Serve para que ocorra a animação dos pássaros
     private float gravidade = 0; //Gravidade forçando para que o pássaro caia
     private float posicaoInicialVerticalPassaro = 0; //Posição inicial do pássaro
+
+    private float posicaoInicialCano = 0;
 
 
 	
@@ -48,6 +53,11 @@ public class Jogo extends ApplicationAdapter {
         larguraDispositivo = Gdx.graphics.getWidth();
         alturaDispositivo = Gdx.graphics.getHeight();
         posicaoInicialVerticalPassaro = alturaDispositivo / 2; //Pega o tamanho da tela e posiciona o pássaro exatamente na metade dela, independente do tamanho da tela do celular
+
+        posicaoInicialCano = alturaDispositivo / 2;
+
+         canoTopo = new Texture("cano_topo.png");
+         canoBaixo = new Texture("cano_baixo.png");
 
 	}
 
@@ -74,6 +84,9 @@ public class Jogo extends ApplicationAdapter {
         //Configuração da movimentação do pássaro
         batch.draw(fundo, 0, 0, larguraDispositivo, alturaDispositivo);
         batch.draw(passaros[(int) variacao], 30, posicaoInicialVerticalPassaro); //Posicionamento do pássaro
+
+        batch.draw(canoTopo,posicaoInicialCano, alturaDispositivo / 2);
+        batch.draw(canoBaixo, posicaoInicialCano, 0);
 
         variacao += Gdx.graphics.getDeltaTime() * 10; //Utiliza DeltaTime para realizar a variação do tempo
         //Contadores
