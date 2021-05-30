@@ -2,6 +2,8 @@ package com.mygdx.game.flappybird;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -18,6 +20,7 @@ import javax.lang.model.element.NestingKind;
 
 public class Jogo extends ApplicationAdapter {
     //Criação das variáveis necessárias para a aplicação
+
     // Variáveis de textura
     private SpriteBatch batch;
     private Texture[] passaros; //Array
@@ -39,23 +42,39 @@ public class Jogo extends ApplicationAdapter {
     private float variacao = 0; //Serve para que ocorra a animação dos pássaros
     private float posicaoCanoHorizontal;
     private float posicaoCanoVertical;
+    private float posicaoHorizontalPassaro = 0;
     private float espacoEntreCanos;
     private int pontos = 0; //Contagem de pontos ao cruzar os canos. Inicialmente com valor nulo.
+    private int pontuacaoMaxima = 0;
     private int estadoJogo = 0;
     private float gravidade = 2; //Gravidade forçando para que o pássaro caia
     private boolean passouCano = false; //Variável que informa se o passarinho passou ou não por dentro do cano
     private Random random; //Altura da abertura dos canos de forma aleatória
 
     BitmapFont textoPontuacao; //Imprime na tela a pontuação
-    BitmapFont textoReiniciar;
-    BitmapFont textoMelhorPontuacao;
+    BitmapFont textoReiniciar; //Imprime na tela o texto de reiniciar, quando o jogo entrar no estado == 2
+    BitmapFont textoMelhorPontuacao; //Imprime na tela o máximo de pontos feitos
 
+    Sound somVoando; //Som das asas do pássaro batendo
+    Sound somColisao; //Som atribuído quando o pássaro colidir com um cano
+    Sound somPontuacao; //Som atribuído quando o pássaro passar com um cano, sem que haja colisão
+
+    Preferences preferencias;
 
 	@Override
 	public void create () { // Puxa as informações e constrói as variáveis necessárias no Método Create.
 	    inicializaTexturas(); //Método no qual inicializa as texturas que serão necessárias
 	    inicializaObjetos(); //Método no qual inicializa os objeto que serão utilizados
 	}
+
+    @Override
+    public void render () { //Método de Renderização dos assets na tela. Atualiza de tempo e tempo e é este Método que verifica o estado atual do jogo
+        //Métodos
+        verificaEstadoJogo(); //Método que verifica a validação da aplicação
+        desenharTexturas(); //Método responsável por desenhar as texturas aplicadas
+        detectarColisao(); //Método responsável pelas colisões
+        validarPontos(); //Método que faz a contagem dos pontos e fica responsável pelo placar
+    }
 
     private void inicializaObjetos() {
 
@@ -85,6 +104,15 @@ public class Jogo extends ApplicationAdapter {
         retanguloCanoCima = new Rectangle();
         retanguloCanoBaixo = new Rectangle();
 
+        somVoando = Gdx.audio.newSound(Gdx.files.internal("som_asa.wav"));
+        somColisao = Gdx.audio.newSound(Gdx.files.internal("som_batida.wav"));
+        somPontuacao = Gdx.audio.newSound(Gdx.files.internal("som_pontos.wav"));
+
+        preferencias = Gdx.app.getPreferences("FlappyBird");
+        pontuacaoMaxima = preferencias.getInteger("pontuacaoMaxima", 0);
+
+
+
     }
 
     private void inicializaTexturas() {
@@ -100,43 +128,38 @@ public class Jogo extends ApplicationAdapter {
 
     }
 
-    @Override
-	public void render () { //Método de Renderização dos assets na tela. Atualiza de tempo e tempo e é este Método que verifica o estado atual do jogo
-	    //Métodos
-	    verificaEstadoJogo(); //Método que verifica a validação da aplicação
-	    desenharTexturas(); //Método responsável por desenhar as texturas aplicadas
-	    detectarColisao(); //Método responsável pelas colisões
-	    validarPontos(); //Método que faz a contagem dos pontos e fica responsável pelo placar
-	}
-
     private void detectarColisao() {
+
 	    circuloPassaro.set(50 + passaros[0].getWidth() / 2,
                 posicaoInicialVerticalPassaro + passaros[0].getHeight() / 2, passaros[0].getWidth() /2);
+
        //Parte de baixo do cano desenhada
 	    retanguloCanoBaixo.set(posicaoCanoHorizontal,
                 alturaDispositivo / 2 - canoBaixo.getHeight() - espacoEntreCanos / 2 + posicaoCanoVertical,
                 canoBaixo.getWidth(), canoBaixo.getHeight());
+
          //Parte de cima do cano desenhada
-	    retanguloCanoCima.set(posicaoCanoHorizontal,
-                alturaDispositivo / 2 - canoTopo.getHeight() - espacoEntreCanos / 2 + posicaoCanoVertical,
+        retanguloCanoCima.set(posicaoCanoHorizontal,
+                alturaDispositivo / 2 + espacoEntreCanos / 2 + posicaoCanoVertical,
                 canoTopo.getWidth(), canoTopo.getHeight());
 
 	    boolean bateuCanoCima = Intersector.overlaps(circuloPassaro, retanguloCanoCima);
         boolean bateuCanoBaixo = Intersector.overlaps(circuloPassaro, retanguloCanoBaixo);
 
         if(bateuCanoBaixo || bateuCanoCima){
-            Gdx.app.log("Log", "Bateu");
-            estadoJogo = 2;
+            if(estadoJogo == 1){
+                somColisao.play(); //Som de batida
+                estadoJogo = 2; //Imprime o game over na tela
+            }
         }
-
 	}
-
 
     private void validarPontos() {
 	    if(posicaoCanoHorizontal < 50 - passaros[0].getWidth()){
 	        if(!passouCano){
 	            pontos++;
 	            passouCano = true;
+	            somPontuacao.play(); //Ao passar pelo cano, é atribuído um som
             }
         }
         variacao += Gdx.graphics.getDeltaTime() * 10; //Utiliza DeltaTime para realizar a variação do tempo
@@ -152,12 +175,14 @@ public class Jogo extends ApplicationAdapter {
             if (toqueTela){ //Caso o usuário toque na tela
                 gravidade = -15; //Gravidade é atribuída e o pássaro é forçado para baixo
                 estadoJogo = 1; //E o estado do jogo será 1
+                somVoando.play();
             }
 
         }else if (estadoJogo == 1){ //Ao entrar no estado 1:
 
             if (toqueTela){ //Ao tocar na tela
                 gravidade = -15; //O pássaro dará pequenos pulos
+                somVoando.play();
             }
 
             //Movimentação dos canos será iniciada
@@ -175,6 +200,23 @@ public class Jogo extends ApplicationAdapter {
 
         } else if(estadoJogo == 2){ //Estado 2 = caso haja colisão o passarinho e jogo então, ficarão estáticos.
 
+	        if(pontos > pontuacaoMaxima){
+               pontuacaoMaxima = pontos;
+               preferencias.putInteger("pontuacaoMaxima", pontuacaoMaxima);
+            }
+
+	        posicaoHorizontalPassaro -= Gdx.graphics.getDeltaTime() * 500; //Pássaro bate no cano e é jogado para trás
+
+	        if(toqueTela){ //Resetando o projeto para que haja o reinício do jogo
+	            estadoJogo = 0;
+	            pontos = 0;
+	            gravidade = 0;
+	            posicaoHorizontalPassaro = 0;
+	            posicaoInicialVerticalPassaro = alturaDispositivo / 2;
+	            posicaoCanoHorizontal = larguraDispositivo;
+
+            }
+
         }
     }
 
@@ -183,7 +225,7 @@ public class Jogo extends ApplicationAdapter {
 
         //Desenho das texturas feitos entre o batch.begin e batch.end
         batch.draw(fundo, 0, 0, larguraDispositivo, alturaDispositivo);
-        batch.draw(passaros[(int) variacao], 50, posicaoInicialVerticalPassaro); //Posicionamento do pássaro
+        batch.draw(passaros[(int) variacao], 50 + posicaoHorizontalPassaro, posicaoInicialVerticalPassaro); //Posicionamento do pássaro
         batch.draw(canoBaixo,posicaoCanoHorizontal,
                 alturaDispositivo / 2 - canoBaixo.getHeight() - espacoEntreCanos / 2 + posicaoCanoVertical);
         batch.draw(canoTopo, posicaoCanoHorizontal, alturaDispositivo / 2 + espacoEntreCanos / 2 + posicaoCanoVertical);
@@ -197,7 +239,7 @@ public class Jogo extends ApplicationAdapter {
             batch.draw(gameOver, larguraDispositivo /2 - gameOver.getWidth() / 2 , alturaDispositivo /2);
             textoReiniciar.draw(batch, "TOQUE NA TELA PARA INICIAR!", //Desenha centralizadamente  o texo de tocar na tela
                     larguraDispositivo / 2 - 200, alturaDispositivo / 2 - gameOver.getHeight() / 2);
-            textoMelhorPontuacao.draw(batch, "SUA MELHOR PONTUAÇÃO É: 0 PONTOS!", //Desenha certralizadamente o texto do record pessoal de pontuação
+            textoMelhorPontuacao.draw(batch, "SUA MELHOR PONTUAÇÃO FOI:" + pontuacaoMaxima + "PONTOS!", //Desenha certralizadamente o texto do record pessoal de pontuação
                     larguraDispositivo / 2 - 280, alturaDispositivo / 2 - gameOver.getHeight() * 2);
         }
         batch.end(); //Fim da parte de renderização
